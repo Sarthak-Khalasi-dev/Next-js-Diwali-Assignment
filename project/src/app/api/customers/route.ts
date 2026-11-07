@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
 
-    let query: any = {};
+    let query: Record<string, unknown> = {};
 
     if (search) {
       query = {
@@ -38,8 +38,9 @@ export async function GET(request: NextRequest) {
       page,
       totalPages: Math.ceil(total / limit),
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -69,13 +70,14 @@ export async function POST(request: NextRequest) {
     const customer = await Customer.create(body);
 
     return NextResponse.json({ customer }, { status: 201 });
-  } catch (error: any) {
-    if (error.code === 11000) {
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code: number }).code === 11000) {
       return NextResponse.json(
         { error: "A customer with this email already exists" },
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

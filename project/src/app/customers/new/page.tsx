@@ -57,8 +57,9 @@ export default function NewCustomerPage() {
       }
 
       router.push("/customers");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create customer';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -206,3 +207,4 @@ export default function NewCustomerPage() {
     </div>
   );
 }
+
