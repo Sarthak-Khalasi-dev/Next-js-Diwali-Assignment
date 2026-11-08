@@ -2,41 +2,61 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Customer from "@/models/Customer";
 
-// GET /api/customers - List all customers with optional search
+// GET /api/customers - List all customers with search, sort, and pagination
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search") || "";
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const search = searchParams.get("search")?.trim() || "";
+    const sortBy = searchParams.get("sortBy") || "createdAt";
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
+    const country = searchParams.get("country")?.trim() || "";
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "12")));
 
-    let query: Record<string, unknown> = {};
+    const query: Record<string, unknown> = {};
 
     if (search) {
-      query = {
-        $or: [
-          { name: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-        ],
-      };
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+        { "billingAddress.city": { $regex: search, $options: "i" } },
+      ];
     }
 
-    const [customers, total] = await Promise.all([
+    if (country && country !== "ALL") {
+      query["billingAddress.country"] = { $regex: `^${country}$`, $options: "i" };
+    }
+
+    const sortOptions: Record<string, 1 | -1> = {};
+    if (["name", "email", "createdAt", "updatedAt"].includes(sortBy)) {
+      sortOptions[sortBy] = sortOrder;
+    } else {
+      sortOptions.createdAt = -1;
+    }
+
+    const [customers, total, countries] = await Promise.all([
       Customer.find(query)
-        .sort({ createdAt: -1 })
+        .sort(sortOptions)
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
       Customer.countDocuments(query),
+      Customer.distinct("billingAddress.country"),
     ]);
+
+    // Filter out blank or empty countries
+    const uniqueCountries = countries.filter(Boolean);
 
     return NextResponse.json({
       customers,
       total,
       page,
-      totalPages: Math.ceil(total / limit),
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      availableCountries: uniqueCountries,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error";
@@ -51,15 +71,27 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    if (!body.name || !body.email) {
+    const name = body.name?.trim();
+    const email = body.email?.trim().toLowerCase();
+
+    if (!name || !email) {
       return NextResponse.json(
         { error: "Name and email are required" },
         { status: 400 }
       );
     }
 
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address" },
+        { status: 400 }
+      );
+    }
+
     // Check for duplicate email
-    const existing = await Customer.findOne({ email: body.email.toLowerCase() });
+    const existing = await Customer.findOne({ email });
     if (existing) {
       return NextResponse.json(
         { error: "A customer with this email already exists" },
@@ -67,7 +99,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const customer = await Customer.create(body);
+    const customer = await Customer.create({
+      ...body,
+      name,
+      email,
+    });
 
     return NextResponse.json({ customer }, { status: 201 });
   } catch (error) {

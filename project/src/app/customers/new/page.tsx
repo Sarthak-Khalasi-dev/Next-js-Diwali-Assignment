@@ -2,12 +2,12 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, Save, AlertCircle, Loader2 } from "lucide-react";
 
 export default function NewCustomerPage() {
   const router = useRouter();
@@ -51,14 +51,15 @@ export default function NewCustomerPage() {
         body: JSON.stringify(form),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Failed to create customer");
       }
 
       router.push("/customers");
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create customer';
+      const message = err instanceof Error ? err.message : "Failed to create customer";
       setError(message);
     } finally {
       setLoading(false);
@@ -66,24 +67,33 @@ export default function NewCustomerPage() {
   }
 
   return (
-    <div>
+    <div className="max-w-5xl mx-auto pb-12">
       <div className="mb-6">
         <Link
           href="/customers"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition mb-2"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Customers
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Add New Customer</h1>
+        <p className="text-sm text-gray-500">Create a new customer profile for billing and subscriptions</p>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      {error && (
+        <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700 font-medium">{error}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Basic Info */}
-          <Card>
+          <Card className="border-gray-200 shadow-sm">
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
+              <CardDescription>Primary contact details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -92,11 +102,12 @@ export default function NewCustomerPage() {
                 </label>
                 <Input
                   required
-                  placeholder="John Doe"
+                  placeholder="e.g. Acme Corp or John Doe"
                   value={form.name}
                   onChange={(e) => updateForm("name", e.target.value)}
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email Address <span className="text-red-500">*</span>
@@ -104,11 +115,12 @@ export default function NewCustomerPage() {
                 <Input
                   type="email"
                   required
-                  placeholder="john@example.com"
+                  placeholder="name@company.com"
                   value={form.email}
                   onChange={(e) => updateForm("email", e.target.value)}
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Phone Number
@@ -119,12 +131,14 @@ export default function NewCustomerPage() {
                   onChange={(e) => updateForm("phone", e.target.value)}
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
+                  Internal Notes
                 </label>
                 <Textarea
-                  placeholder="Any additional notes about this customer..."
+                  placeholder="Add any internal remarks or instructions..."
+                  rows={4}
                   value={form.notes}
                   onChange={(e) => updateForm("notes", e.target.value)}
                 />
@@ -133,20 +147,24 @@ export default function NewCustomerPage() {
           </Card>
 
           {/* Billing Address */}
-          <Card>
+          <Card className="border-gray-200 shadow-sm">
             <CardHeader>
               <CardTitle>Billing Address</CardTitle>
+              <CardDescription>Invoicing address and tax jurisdiction</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Street</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Street Address
+                </label>
                 <Input
-                  placeholder="123 Main Street"
+                  placeholder="123 Main Street, Suite 100"
                   value={form.billingAddress.street}
                   onChange={(e) => updateForm("billingAddress.street", e.target.value)}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                   <Input
@@ -164,9 +182,10 @@ export default function NewCustomerPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Postal / ZIP Code</label>
                   <Input
                     placeholder="400001"
                     value={form.billingAddress.zipCode}
@@ -186,25 +205,28 @@ export default function NewCustomerPage() {
           </Card>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="mt-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>
-        )}
-
-        {/* Actions */}
-        <div className="flex items-center gap-3 mt-6">
-          <Button type="submit" disabled={loading}>
-            <Save className="h-4 w-4" />
-            {loading ? "Saving..." : "Save Customer"}
-          </Button>
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
           <Link href="/customers">
             <Button type="button" variant="outline">
               Cancel
             </Button>
           </Link>
+          <Button type="submit" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving Customer...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save Customer
+              </>
+            )}
+          </Button>
         </div>
       </form>
     </div>
   );
 }
-
