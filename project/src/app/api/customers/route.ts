@@ -100,9 +100,17 @@ export async function POST(request: NextRequest) {
     }
 
     const customer = await Customer.create({
-      ...body,
       name,
       email,
+      phone: body.phone ? body.phone.trim() : "",
+      billingAddress: {
+        street: body.billingAddress?.street ? body.billingAddress.street.trim() : "",
+        city: body.billingAddress?.city ? body.billingAddress.city.trim() : "",
+        state: body.billingAddress?.state ? body.billingAddress.state.trim() : "",
+        zipCode: body.billingAddress?.zipCode ? body.billingAddress.zipCode.trim() : "",
+        country: body.billingAddress?.country ? body.billingAddress.country.trim() : "India",
+      },
+      notes: body.notes ? body.notes.trim() : "",
     });
 
     return NextResponse.json({ customer }, { status: 201 });

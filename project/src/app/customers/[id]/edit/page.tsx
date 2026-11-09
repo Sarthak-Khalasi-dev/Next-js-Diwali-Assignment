@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ArrowLeft, Save, Trash2, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Trash2, AlertCircle, Loader2, CheckCircle2, User, MapPin } from "lucide-react";
 
 interface EditCustomerPageProps {
   params: Promise<{ id: string }>;
@@ -22,7 +22,7 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [error, setError] = useState("");
+  const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const [form, setForm] = useState({
@@ -39,11 +39,19 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
     notes: "",
   });
 
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    zipCode?: string;
+    notes?: string;
+  }>({});
+
   useEffect(() => {
     async function fetchCustomer() {
       try {
         setLoading(true);
-        setError("");
+        setServerError("");
         const res = await fetch(`/api/customers/${id}`);
         const data = await res.json();
 
@@ -66,8 +74,8 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
           notes: customer.notes || "",
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load customer";
-        setError(message);
+        const message = err instanceof Error ? err.message : "Failed to load customer profile";
+        setServerError(message);
       } finally {
         setLoading(false);
       }
@@ -77,6 +85,47 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
       fetchCustomer();
     }
   }, [id]);
+
+  function validateField(field: string, value: string): string | undefined {
+    if (field === "name") {
+      const trimmed = value.trim();
+      if (!trimmed) return "Customer name cannot be empty.";
+      if (trimmed.length < 2) return "Name must be at least 2 characters long.";
+      if (trimmed.length > 100) return "Name cannot exceed 100 characters.";
+    }
+
+    if (field === "email") {
+      const trimmed = value.trim();
+      if (!trimmed) return "Email address cannot be empty.";
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmed)) return "Please enter a valid email address.";
+    }
+
+    if (field === "phone") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/;
+        if (!phoneRegex.test(trimmed)) {
+          return "Please enter a valid phone number format.";
+        }
+      }
+    }
+
+    if (field === "billingAddress.zipCode") {
+      const trimmed = value.trim();
+      if (trimmed && trimmed.length > 15) {
+        return "Postal code cannot exceed 15 characters.";
+      }
+    }
+
+    if (field === "notes") {
+      if (value.length > 1000) {
+        return "Internal notes cannot exceed 1000 characters.";
+      }
+    }
+
+    return undefined;
+  }
 
   function updateForm(field: string, value: string) {
     if (field.startsWith("billingAddress.")) {
@@ -88,19 +137,67 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
     } else {
       setForm((prev) => ({ ...prev, [field]: value }));
     }
+
+    const errorKey = field.startsWith("billingAddress.") ? field.split(".")[1] : field;
+    const error = validateField(field, value);
+    setErrors((prev) => ({
+      ...prev,
+      [errorKey]: error,
+    }));
+  }
+
+  function validateAll(): boolean {
+    const newErrors: typeof errors = {};
+
+    const nameErr = validateField("name", form.name);
+    if (nameErr) newErrors.name = nameErr;
+
+    const emailErr = validateField("email", form.email);
+    if (emailErr) newErrors.email = emailErr;
+
+    const phoneErr = validateField("phone", form.phone);
+    if (phoneErr) newErrors.phone = phoneErr;
+
+    const zipErr = validateField("billingAddress.zipCode", form.billingAddress.zipCode);
+    if (zipErr) newErrors.zipCode = zipErr;
+
+    const notesErr = validateField("notes", form.notes);
+    if (notesErr) newErrors.notes = notesErr;
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    setServerError("");
     setSuccessMessage("");
+
+    if (!validateAll()) {
+      return;
+    }
+
     setSaving(true);
 
     try {
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim(),
+        billingAddress: {
+          street: form.billingAddress.street.trim(),
+          city: form.billingAddress.city.trim(),
+          state: form.billingAddress.state.trim(),
+          zipCode: form.billingAddress.zipCode.trim(),
+          country: form.billingAddress.country.trim() || "India",
+        },
+        notes: form.notes.trim(),
+      };
+
       const res = await fetch(`/api/customers/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -109,13 +206,13 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
         throw new Error(data.error || "Failed to update customer");
       }
 
-      setSuccessMessage("Customer updated successfully!");
+      setSuccessMessage("Customer profile updated successfully!");
       setTimeout(() => {
-        router.push("/customers");
-      }, 900);
+        router.push(`/customers/${id}`);
+      }, 700);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update customer";
-      setError(message);
+      setServerError(message);
     } finally {
       setSaving(false);
     }
@@ -137,7 +234,7 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
       router.push("/customers");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete customer";
-      setError(message);
+      setServerError(message);
       setDeleteDialogOpen(false);
     } finally {
       setDeleting(false);
@@ -146,21 +243,21 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
+      <div className="flex flex-col items-center justify-center min-h-[450px]">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-3" />
-        <p className="text-gray-500 font-medium">Loading customer details...</p>
+        <p className="text-gray-600 font-medium">Loading customer profile...</p>
       </div>
     );
   }
 
-  if (error && !form.name) {
+  if (serverError && !form.name) {
     return (
-      <div className="max-w-2xl mx-auto py-12">
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-6 text-center">
+      <div className="max-w-xl mx-auto py-16">
+        <Card className="border-red-200 bg-red-50 shadow-sm">
+          <CardContent className="p-8 text-center">
             <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-3" />
-            <h2 className="text-lg font-semibold text-red-900 mb-1">Failed to Load Customer</h2>
-            <p className="text-sm text-red-700 mb-4">{error}</p>
+            <h2 className="text-lg font-bold text-red-900 mb-1">Customer Not Found</h2>
+            <p className="text-sm text-red-700 mb-6">{serverError}</p>
             <Link href="/customers">
               <Button variant="outline">Back to Customers</Button>
             </Link>
@@ -171,118 +268,149 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto pb-12">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="max-w-4xl mx-auto pb-16">
+      {/* Header Bar */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-5">
         <div>
           <Link
-            href="/customers"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition mb-2"
+            href={`/customers/${id}`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-blue-600 transition mb-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Customers
+            Back to Customer Profile
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Edit Customer</h1>
-          <p className="text-sm text-gray-500">Update customer profile and billing information</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+            Edit Customer
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Update contact details, billing address, or staff notes.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
             type="button"
             variant="outline"
-            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 gap-1.5"
             onClick={() => setDeleteDialogOpen(true)}
           >
-            <Trash2 className="h-4 w-4 mr-1.5" />
+            <Trash2 className="h-4 w-4" />
             Delete Customer
           </Button>
         </div>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 flex items-start gap-3">
+      {serverError && (
+        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3 shadow-xs">
           <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700 font-medium">{error}</p>
+          <div>
+            <h4 className="text-sm font-semibold text-red-900">Update Failed</h4>
+            <p className="text-sm text-red-700 mt-0.5">{serverError}</p>
+          </div>
         </div>
       )}
 
       {successMessage && (
-        <div className="mb-6 p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800 font-medium">
-          {successMessage}
+        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 text-emerald-800 shadow-xs">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+          <p className="text-sm font-medium">{successMessage} Returning to profile...</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Basic Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Basic Information</CardTitle>
-              <CardDescription>Customer contact information</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader className="pb-4 border-b border-gray-100 flex flex-row items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                <User className="h-4 w-4" />
+              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name <span className="text-red-500">*</span>
+                <CardTitle className="text-base font-semibold">Basic Details</CardTitle>
+                <CardDescription>Primary identity and contact info</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Full Name / Organization <span className="text-red-500">*</span>
                 </label>
                 <Input
                   required
-                  placeholder="e.g. Acme Corp or John Doe"
+                  placeholder="e.g. Acme Corporation"
                   value={form.name}
                   onChange={(e) => updateForm("name", e.target.value)}
+                  className={errors.name ? "border-red-400 focus:ring-red-400" : ""}
                 />
+                {errors.name && <p className="text-xs text-red-600 mt-1.5 font-medium">{errors.name}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   Email Address <span className="text-red-500">*</span>
                 </label>
                 <Input
-                  required
                   type="email"
-                  placeholder="name@company.com"
+                  required
+                  placeholder="billing@acme.com"
                   value={form.email}
                   onChange={(e) => updateForm("email", e.target.value)}
+                  className={errors.email ? "border-red-400 focus:ring-red-400" : ""}
                 />
+                {errors.email && <p className="text-xs text-red-600 mt-1.5 font-medium">{errors.email}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   Phone Number
                 </label>
                 <Input
+                  type="tel"
                   placeholder="+91 98765 43210"
                   value={form.phone}
                   onChange={(e) => updateForm("phone", e.target.value)}
+                  className={errors.phone ? "border-red-400 focus:ring-red-400" : ""}
                 />
+                {errors.phone && <p className="text-xs text-red-600 mt-1.5 font-medium">{errors.phone}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Internal Notes
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Internal Notes
+                  </label>
+                  <span className="text-xs text-gray-400">{form.notes.length}/1000</span>
+                </div>
                 <Textarea
-                  placeholder="Important notes about this customer..."
+                  placeholder="Staff remarks regarding terms, client requests, or preferences..."
                   rows={4}
                   value={form.notes}
                   onChange={(e) => updateForm("notes", e.target.value)}
+                  className={errors.notes ? "border-red-400 focus:ring-red-400 text-sm" : "text-sm"}
                 />
+                {errors.notes && <p className="text-xs text-red-600 mt-1.5 font-medium">{errors.notes}</p>}
               </div>
             </CardContent>
           </Card>
 
           {/* Billing Address */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing Address</CardTitle>
-              <CardDescription>Address used for invoice tax and receipts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader className="pb-4 border-b border-gray-100 flex flex-row items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+                <MapPin className="h-4 w-4" />
+              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <CardTitle className="text-base font-semibold">Billing Address</CardTitle>
+                <CardDescription>Address used on tax invoices</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                   Street Address
                 </label>
                 <Input
-                  placeholder="123 Main Street, Suite 400"
+                  placeholder="123 Main Street"
                   value={form.billingAddress.street}
                   onChange={(e) => updateForm("billingAddress.street", e.target.value)}
                 />
@@ -290,7 +418,7 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                     City
                   </label>
                   <Input
@@ -300,7 +428,7 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                     State / Province
                   </label>
                   <Input
@@ -313,17 +441,19 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Postal / Zip Code
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Postal / ZIP Code
                   </label>
                   <Input
                     placeholder="400001"
                     value={form.billingAddress.zipCode}
                     onChange={(e) => updateForm("billingAddress.zipCode", e.target.value)}
+                    className={errors.zipCode ? "border-red-400 focus:ring-red-400" : ""}
                   />
+                  {errors.zipCode && <p className="text-xs text-red-600 mt-1 font-medium">{errors.zipCode}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                     Country
                   </label>
                   <Input
@@ -339,16 +469,20 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
 
         {/* Action Buttons */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-          <Link href="/customers">
-            <Button variant="outline" type="button">
+          <Link href={`/customers/${id}`}>
+            <Button type="button" variant="outline" className="border-gray-300">
               Cancel
             </Button>
           </Link>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            disabled={saving}
+            className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px]"
+          >
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
+                Saving Changes...
               </>
             ) : (
               <>
@@ -360,12 +494,13 @@ function EditCustomerContent({ params }: EditCustomerPageProps) {
         </div>
       </form>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Modal */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogHeader>
-          <DialogTitle>Delete Customer</DialogTitle>
+          <DialogTitle>Confirm Delete Customer</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <strong className="text-gray-900">{form.name}</strong>? This action cannot be undone and will permanently remove this customer profile.
+            Are you sure you want to delete <strong className="text-gray-900">{form.name}</strong>?
+            This will permanently remove this customer profile.
           </DialogDescription>
         </DialogHeader>
         <div className="mt-6 flex items-center justify-end gap-3">
@@ -402,7 +537,7 @@ export default function EditCustomerPage(props: EditCustomerPageProps) {
       fallback={
         <div className="flex flex-col items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-3" />
-          <p className="text-gray-500 font-medium">Loading customer details...</p>
+          <p className="text-gray-500 font-medium">Loading editor...</p>
         </div>
       }
     >
