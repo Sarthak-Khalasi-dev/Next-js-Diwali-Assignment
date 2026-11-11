@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, AlertCircle, Loader2, CheckCircle2, User, Mail, Phone, MapPin, FileText } from "lucide-react";
+import { ArrowLeft, Save, AlertCircle, Loader2, CheckCircle2, User, MapPin, FileText } from "lucide-react";
 
 export default function NewCustomerPage() {
   const router = useRouter();

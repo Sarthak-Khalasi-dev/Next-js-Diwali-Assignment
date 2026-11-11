@@ -29,7 +29,6 @@ import {
   Filter,
   X,
   Loader2,
-  Building,
 } from "lucide-react";
 import Link from "next/link";
 
