@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Select } from "@/components/ui/select";
 import {
   Dialog,
   DialogHeader,
@@ -15,25 +14,18 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  CreditCard,
   User,
   Package,
-  Calendar,
   CheckCircle2,
   PauseCircle,
   XCircle,
-  AlertTriangle,
   ArrowLeft,
-  Clock,
   History,
   FileText,
   RotateCw,
   Loader2,
   AlertCircle,
   ArrowRight,
-  TrendingUp,
-  Tag,
-  ShieldCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 

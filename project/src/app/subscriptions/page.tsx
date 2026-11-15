@@ -21,15 +21,12 @@ import {
   PauseCircle,
   XCircle,
   AlertTriangle,
-  ArrowRight,
   Eye,
   RefreshCw,
   Loader2,
   Calendar,
-  User,
   ChevronLeft,
   ChevronRight,
-  Clock,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 

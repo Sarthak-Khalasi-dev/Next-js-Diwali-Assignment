@@ -6,20 +6,16 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CreditCard,
   User,
   Package,
-  Calendar,
   CheckCircle2,
   ArrowLeft,
   Loader2,
   AlertCircle,
-  Clock,
-  Sparkles,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
