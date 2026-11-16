@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -506,12 +507,12 @@ export default function InvoicesPage() {
                     return (
                       <tr key={inv._id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4">
-                          <button
-                            onClick={() => setViewInvoice(inv)}
-                            className="font-mono font-medium text-blue-600 hover:underline text-xs"
+                          <Link
+                            href={`/invoices/${inv._id}`}
+                            className="font-mono font-medium text-blue-600 hover:underline text-xs inline-flex items-center gap-1"
                           >
                             {inv.invoiceNumber}
-                          </button>
+                          </Link>
                           <p className="text-[10px] text-gray-400 mt-0.5">
                             {formatDate(inv.createdAt)}
                           </p>
@@ -541,14 +542,15 @@ export default function InvoicesPage() {
 
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setViewInvoice(inv)}
-                              title="View details"
-                            >
-                              View
-                            </Button>
+                            <Link href={`/invoices/${inv._id}`}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Open invoice details"
+                              >
+                                View
+                              </Button>
+                            </Link>
 
                             {inv.status !== "paid" && (
                               <Button
