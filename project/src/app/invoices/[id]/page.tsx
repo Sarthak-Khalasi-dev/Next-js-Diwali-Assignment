@@ -18,6 +18,7 @@ import {
 import {
   ArrowLeft,
   Printer,
+  Download,
   Edit3,
   CheckCircle2,
   Clock,
@@ -103,6 +104,7 @@ export default function InvoiceDetailPage({
 
   // Status update loader
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Edit Invoice modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -264,6 +266,28 @@ export default function InvoiceDetailPage({
     window.print();
   };
 
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloadingPdf(true);
+      const res = await fetch(`/api/invoices/${id}/pdf`);
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${invoice?.invoiceNumber || "invoice"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showNotification("Invoice PDF downloaded successfully!");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "PDF download failed");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
@@ -333,9 +357,23 @@ export default function InvoiceDetailPage({
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+          >
+            {downloadingPdf ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+            ) : (
+              <Download className="h-4 w-4 mr-1.5" />
+            )}
+            Download PDF
+          </Button>
+
           <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-1.5" />
-            Print / PDF
+            Print
           </Button>
 
           <Button variant="outline" size="sm" onClick={handleOpenEdit}>
