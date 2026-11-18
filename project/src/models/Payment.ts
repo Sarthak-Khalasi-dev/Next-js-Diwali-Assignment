@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
-export type PaymentStatus = "successful" | "pending" | "failed";
+export type PaymentStatus = "successful" | "pending" | "failed" | "refunded";
 export type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "upi" | "cash" | "other";
 
 export interface IPayment extends Document {
@@ -30,7 +30,7 @@ const PaymentSchema = new Schema<IPayment>(
     },
     status: {
       type: String,
-      enum: ["successful", "pending", "failed"],
+      enum: ["successful", "pending", "failed", "refunded"],
       default: "pending",
     },
     transactionId: { type: String, default: "" },
